@@ -1,24 +1,177 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
   <title id="title">Meta-Stripper icon</title>
-  <desc id="desc">Stylized neon woman dancing beside a pole</desc>
+  <desc id="desc">Stylized neon adult woman seen from behind, crouching at a pole and looking back</desc>
+
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#390b38"/><stop offset="1" stop-color="#0b050d"/></linearGradient>
-    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff7bc1"/><stop offset=".48" stop-color="#ff2f96"/><stop offset="1" stop-color="#57e8f6"/></linearGradient>
-    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="9" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <radialGradient id="bg" cx="50%" cy="42%" r="68%">
+      <stop offset="0" stop-color="#3e0c3d"/>
+      <stop offset=".62" stop-color="#1a081d"/>
+      <stop offset="1" stop-color="#09040b"/>
+    </radialGradient>
+
+    <linearGradient id="skin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffd4e8"/>
+      <stop offset=".48" stop-color="#ff8fc5"/>
+      <stop offset="1" stop-color="#ff4aa5"/>
+    </linearGradient>
+
+    <linearGradient id="outfit" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff2f96"/>
+      <stop offset="1" stop-color="#c60068"/>
+    </linearGradient>
+
+    <linearGradient id="cyan" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8af5ff"/>
+      <stop offset="1" stop-color="#36bfd1"/>
+    </linearGradient>
+
+    <filter id="pink-glow" x="-70%" y="-70%" width="240%" height="240%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="soft-glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
+
   <circle cx="256" cy="256" r="232" fill="url(#bg)" stroke="#ff4aa5" stroke-width="14"/>
-  <circle cx="256" cy="256" r="198" fill="none" stroke="#57e8f6" stroke-width="6" opacity=".7"/>
-  <g filter="url(#glow)">
-    <rect x="350" y="78" width="15" height="354" rx="8" fill="#57e8f6"/>
-    <path d="M213 118 C222 88 266 81 286 106 C301 125 295 157 279 171 C258 187 222 173 214 150 C210 139 209 128 213 118Z" fill="#ff4aa5"/>
-    <circle cx="252" cy="132" r="28" fill="#ffd0e8"/>
-    <path d="M247 165 C225 171 215 190 221 211 C228 230 234 243 226 260 C216 282 222 306 246 319 C267 330 298 323 308 302 C317 284 307 266 297 250 C288 236 291 221 302 204 C313 185 300 168 278 164 C267 162 258 164 247 165Z" fill="url(#body)"/>
-    <path d="M294 190 C319 178 340 157 356 126" fill="none" stroke="#ff4aa5" stroke-width="22" stroke-linecap="round"/>
-    <circle cx="357" cy="124" r="12" fill="#ffd0e8"/>
-    <path d="M229 190 C202 200 181 221 168 250 C160 268 155 284 153 299" fill="none" stroke="#ff4aa5" stroke-width="20" stroke-linecap="round"/>
-    <circle cx="153" cy="302" r="11" fill="#ffd0e8"/>
-    <path d="M260 310 C255 344 258 385 267 430" fill="none" stroke="#57e8f6" stroke-width="27" stroke-linecap="round"/>
-    <path d="M283 309 C301 336 316 355 337 363 C350 368 356 381 349 393 C342 405 326 408 315 399" fill="none" stroke="#ff4aa5" stroke-width="27" stroke-linecap="round"/>
-    <path d="M245 437 L281 437 L289 448 L244 448Z" fill="#ff4aa5"/>
+  <circle cx="256" cy="256" r="198" fill="none" stroke="#57e8f6" stroke-width="5" opacity=".7"/>
+
+  <g filter="url(#soft-glow)">
+    <rect x="354" y="66" width="15" height="382" rx="8" fill="url(#cyan)"/>
+    <ellipse cx="361.5" cy="449" rx="29" ry="5" fill="#57e8f6" opacity=".28"/>
+  </g>
+
+  <g filter="url(#pink-glow)">
+    <!-- Hair: swept back with a loose ponytail -->
+    <path d="M232 110
+             C239 84 274 74 299 88
+             C317 98 326 118 319 137
+             C313 153 302 162 291 169
+             C306 176 315 189 314 204
+             C300 196 287 187 279 175
+             C260 171 241 161 232 145
+             C225 133 226 120 232 110Z"
+          fill="#ff3197"/>
+    <path d="M309 137
+             C331 147 343 167 339 188
+             C336 202 326 213 314 220
+             C319 202 310 187 292 174Z"
+          fill="#d70075"/>
+
+    <!-- Head turned over the right shoulder -->
+    <path d="M247 112
+             C259 96 283 92 298 104
+             C311 115 311 137 299 150
+             C290 160 276 164 264 158
+             C253 152 245 140 244 127
+             C243 121 244 116 247 112Z"
+          fill="url(#skin)"/>
+
+    <!-- Face profile looking back -->
+    <path d="M291 110
+             C301 114 306 122 304 131
+             C303 137 299 140 296 143
+             C302 145 304 148 302 152
+             C298 158 290 159 284 156"
+          fill="none" stroke="#8f174f" stroke-width="3.5" stroke-linecap="round"/>
+    <path d="M291 122 C295 119 300 119 303 122" fill="none" stroke="#4c1734" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="299" cy="123" r="1.8" fill="#341126"/>
+    <path d="M295 149 C299 151 302 151 305 149" fill="none" stroke="#a31155" stroke-width="2.7" stroke-linecap="round"/>
+
+    <!-- Neck and shoulders from behind -->
+    <path d="M258 157
+             C257 172 249 180 236 184
+             C219 190 207 201 202 217
+             C198 230 202 240 214 245
+             C229 251 244 247 254 237
+             C264 247 280 251 296 246
+             C309 242 315 231 311 217
+             C307 202 295 190 277 184
+             C266 180 262 171 263 158Z"
+          fill="url(#skin)"/>
+
+    <!-- Back and waist -->
+    <path d="M217 213
+             C220 245 219 267 210 287
+             C204 302 208 318 222 330
+             C238 344 269 349 291 338
+             C308 329 316 312 310 296
+             C300 269 298 245 303 216
+             C287 225 271 228 255 225
+             C239 228 226 224 217 213Z"
+          fill="url(#skin)"/>
+
+    <!-- Back definition -->
+    <path d="M254 191 C248 215 248 248 252 279"
+          fill="none" stroke="#df4c8f" stroke-width="3.2" stroke-linecap="round" opacity=".75"/>
+    <path d="M230 209 C236 220 244 226 254 229 C265 226 273 219 279 208"
+          fill="none" stroke="#e55395" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+
+    <!-- Strappy top -->
+    <path d="M222 202 C231 213 242 219 254 220 C267 219 279 212 289 201"
+          fill="none" stroke="url(#outfit)" stroke-width="10" stroke-linecap="round"/>
+    <path d="M231 190 L222 211 M278 190 L289 210"
+          fill="none" stroke="#ff2f96" stroke-width="5" stroke-linecap="round"/>
+
+    <!-- High-waisted bottoms -->
+    <path d="M216 291
+             C231 300 241 304 254 304
+             C269 304 288 299 306 289
+             L310 312
+             C300 333 281 344 256 345
+             C233 344 216 333 207 315Z"
+          fill="url(#outfit)"/>
+    <path d="M213 298 C236 309 278 309 307 296"
+          fill="none" stroke="#ff7bc1" stroke-width="3" opacity=".85"/>
+
+    <!-- Arm reaching high to the pole -->
+    <path d="M291 198
+             C313 183 333 161 352 129"
+          fill="none" stroke="url(#skin)" stroke-width="20" stroke-linecap="round"/>
+    <path d="M351 130 C354 119 358 111 364 107"
+          fill="none" stroke="#ffd4e8" stroke-width="11" stroke-linecap="round"/>
+    <path d="M361 105 C366 110 369 117 367 126"
+          fill="none" stroke="#ffd4e8" stroke-width="7" stroke-linecap="round"/>
+
+    <!-- Other arm low on pole for the deep pose -->
+    <path d="M218 216
+             C199 241 195 273 207 298
+             C218 316 236 325 258 327
+             C289 330 321 318 349 295"
+          fill="none" stroke="url(#skin)" stroke-width="18" stroke-linecap="round"/>
+    <circle cx="351" cy="294" r="9" fill="#ffd4e8"/>
+
+    <!-- Deep crouch: left thigh and lower leg -->
+    <path d="M229 329
+             C205 339 184 356 169 378
+             C158 394 151 410 149 426"
+          fill="none" stroke="url(#skin)" stroke-width="31" stroke-linecap="round"/>
+    <path d="M149 426 C145 436 141 443 134 447"
+          fill="none" stroke="#ff65b0" stroke-width="20" stroke-linecap="round"/>
+
+    <!-- Deep crouch: right thigh bent toward pole -->
+    <path d="M284 334
+             C309 343 331 354 348 368
+             C361 379 365 393 359 407"
+          fill="none" stroke="url(#skin)" stroke-width="31" stroke-linecap="round"/>
+    <path d="M359 407 C355 417 352 426 352 439"
+          fill="none" stroke="#ff65b0" stroke-width="20" stroke-linecap="round"/>
+
+    <!-- Heels -->
+    <path d="M126 444 L156 444 L166 453 L124 453Z" fill="#ff2f96"/>
+    <path d="M343 438 L367 438 L377 450 L343 450Z" fill="#ff2f96"/>
+    <path d="M365 448 L371 459" stroke="#ff2f96" stroke-width="5" stroke-linecap="round"/>
+
+    <!-- Small earrings -->
+    <circle cx="300" cy="151" r="4.5" fill="#57e8f6"/>
   </g>
 </svg>
