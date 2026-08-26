@@ -1,20 +1,53 @@
 # Meta-Stripper
 
-**Take it all off. Metadata only.**
+**Strip Metadata off. Keep Image on.**
 
-Meta-Stripper is a static, dependency-free Progressive Web App that re-encodes JPEG, PNG and WebP images entirely in the browser to remove source-level metadata and embedded provenance blocks from the exported file.
+Meta-Stripper is a static, dependency-free Progressive Web App that re-encodes JPEG, PNG and WebP images entirely in the browser to remove source-level metadata and embedded provenance blocks.
 
 ## What it does
 
 - Runs entirely client-side with plain HTML, CSS and JavaScript.
-- Decodes the selected image and draws only the visible pixels to a canvas.
-- Creates a new JPEG, PNG or WebP file instead of copying the original container.
+- Accepts one image or a batch of images.
+- Shows detected source metadata for every selected image before stripping.
+- Displays common readable EXIF details such as camera make/model, software, dates and the presence of GPS data when available.
+- Decodes each image and draws only its visible pixels to a canvas.
+- Creates a new JPEG, PNG or WebP file instead of copying the source container.
 - Removes source EXIF/GPS, XMP, IPTC, comments and embedded C2PA/JUMBF blocks as a consequence of re-encoding.
-- Scans the generated file for known source-metadata markers before enabling download.
-- Rejects SVG and files whose real signature does not match a supported raster format.
-- Enforces a 30 MB input limit and a 50-megapixel decoded-size limit.
+- Scans every generated file for known source-metadata markers before enabling download.
+- Processes batches sequentially to reduce peak memory pressure.
 - Works offline after the app shell has been cached by the Service Worker.
 - Uses no libraries, fonts, analytics, CDN assets, remote APIs or upload endpoint.
+
+## Configure image and batch limits
+
+All size limits live in [`config.js`](./config.js), so they can be changed without editing `app.js`:
+
+```javascript
+window.META_STRIPPER_CONFIG = Object.freeze({
+  maxFileBytes: 30 * 1024 * 1024,
+  maxPixels: 50_000_000,
+  maxBatchFiles: 20,
+  jpegHeaderScanBytes: 2 * 1024 * 1024,
+});
+```
+
+- `maxFileBytes`: maximum source-file size per image.
+- `maxPixels`: maximum decoded pixel count per image.
+- `maxBatchFiles`: maximum number of images held in one batch.
+- `jpegHeaderScanBytes`: maximum JPEG header bytes inspected when reading dimensions.
+
+`config.js` is network-first in the Service Worker and is configured as `no-cache` in the supplied server examples, while a cached copy remains available offline.
+
+## Batch workflow
+
+1. Choose or drop one or more JPEG, PNG or WebP images.
+2. Review the detected source metadata shown for each image.
+3. Choose the output format and lossy quality.
+4. Select **Strip metadata**.
+5. Download each clean result.
+6. Select **Strip more** to clear the current batch and open the image picker again.
+
+The dancer icon in the hero area also opens the image picker directly.
 
 ## Important limitation: CR / C2PA cannot be guaranteed away everywhere
 
@@ -31,17 +64,17 @@ References:
 
 ## Privacy model
 
-The selected image is held only in browser memory and local object URLs while the page is open.
+Selected images are held only in browser memory and local object URLs while the page is open.
 
 Meta-Stripper does not:
 
-- upload the selected file;
+- upload files;
 - send metadata or filenames to a backend;
 - use analytics or telemetry;
 - load third-party JavaScript;
 - cache user-selected images in the Service Worker.
 
-The Content Security Policy restricts `connect-src` to the same origin so the Service Worker can refresh the static app shell while cross-origin connections remain blocked.
+The Content Security Policy restricts `connect-src` to the same origin, allowing the Service Worker to refresh static app files while blocking cross-origin connections.
 
 ## Security design
 
@@ -49,11 +82,11 @@ The app treats image files as untrusted input:
 
 1. It checks the real file signature instead of trusting the extension alone.
 2. It accepts only JPEG, PNG and WebP.
-3. It rejects files above 30 MB.
-4. It reads dimensions before full decoding where possible and rejects images above 50 megapixels.
-5. User-controlled filenames are inserted with `textContent`, never `innerHTML`.
-6. Object URLs are revoked when replaced or when the page unloads.
-7. The exported image is scanned for known source-metadata markers before download.
+3. It validates configured file-size and decoded-pixel limits before decoding.
+4. It processes batch files sequentially.
+5. User-controlled filenames and metadata values are inserted with `textContent`, never `innerHTML`.
+6. Object URLs are revoked when batches are cleared or the page unloads.
+7. Every exported image is scanned for known source-metadata markers before download.
 8. No third-party dependencies are present.
 9. A restrictive CSP and additional security headers are supplied for Apache and Nginx.
 
@@ -70,33 +103,23 @@ The byte-level verification is deliberately described as a check for **known mar
 | HEIC/HEIF | No | No |
 | AVIF | No | No |
 
-The browser may fall back to PNG if it does not support the requested encoder. Meta-Stripper detects the actual returned MIME type.
-
 ## Deploy
 
 No build step is required.
 
 ### Apache / common shared hosting
 
-Upload the **contents** of this repository to the document root of the HTTPS hostname or subdomain.
-
-The included `.htaccess`:
-
-- disables directory listing;
-- adds a strict CSP;
-- adds clickjacking, MIME-sniffing, referrer, permissions, COOP and CORP protections;
-- enables HSTS for the current hostname;
-- prevents aggressive caching of `sw.js`.
-
-If your host does not allow `Header` directives, reproduce the headers in the host/CDN control panel.
+Upload the **contents** of this repository to the document root of the HTTPS hostname or subdomain. The included `.htaccess` adds the security headers and cache rules needed by the app.
 
 ### Nginx
 
-Use `nginx-security-headers.conf` as a reference and adapt the two `location` paths if the app is not mounted at `/`.
+Use `nginx-security-headers.conf` as a reference. Adapt the `location` paths if the app is mounted below `/`.
 
 ### Subdomain and subdirectory support
 
-All browser-facing paths in the application are relative (`./`), and the web manifest uses a relative `start_url`, `scope` and `id`. The PWA can therefore be served from:
+All browser-facing paths are relative (`./`), and the web manifest uses a relative `start_url`, `scope` and `id`.
+
+Examples:
 
 - `https://meta.example.com/`
 - `https://example.com/meta-stripper/`
@@ -109,52 +132,19 @@ Service Workers and installable PWAs require a secure context. Deploy over HTTPS
 
 ### HSTS note
 
-The supplied configuration uses:
-
-```text
-Strict-Transport-Security: max-age=31536000
-```
-
-It intentionally does **not** include `includeSubDomains` or `preload`. Add those only after confirming that every affected hostname is permanently HTTPS.
+The supplied server examples use `Strict-Transport-Security: max-age=31536000`. They intentionally do **not** include `includeSubDomains` or `preload`.
 
 ## Local test
-
-Any local static HTTP server is enough for normal UI testing. Service Worker behavior works on `localhost`.
-
-Example with Python:
 
 ```bash
 python3 -m http.server 8080
 ```
 
-Then open:
-
-```text
-http://localhost:8080/
-```
+Then open `http://localhost:8080/`.
 
 ## PWA update behavior
 
-The Service Worker cache is currently:
-
-```text
-meta-stripper-v1
-```
-
-When changing cached assets for a release, increment the cache name in `sw.js` so old app-shell caches are removed on activation.
-
-## Release checks
-
-Before publishing a release:
-
-- Test JPEG, PNG and WebP source images with EXIF/XMP/C2PA data.
-- Verify an offline reload after one successful online visit.
-- Test keyboard-only navigation and visible focus.
-- Test VoiceOver/NVDA/TalkBack on the deployed version where possible.
-- Run Lighthouse against the real HTTPS hostname.
-- Check the deployed headers with browser DevTools or a security-header scanner.
-- Verify installability on Android/Chromium and iOS/Safari.
-- Confirm that `sw.js` is served as JavaScript and is not cached for a long period.
+The current Service Worker cache is `meta-stripper-v2`. Increment the cache name in `sw.js` when changing cached application assets in a later release.
 
 ## Project structure
 
@@ -164,6 +154,8 @@ meta-stripper/
 ├── .gitignore
 ├── README.md
 ├── app.js
+├── batch.css
+├── config.js
 ├── index.html
 ├── manifest.webmanifest
 ├── nginx-security-headers.conf
@@ -176,7 +168,7 @@ meta-stripper/
 
 ## No build, no package manager
 
-There is no `package.json`, no npm dependency tree and no build output. What you see in the repository is what is served.
+There is no `package.json`, npm dependency tree or build output. What is in the repository is what is served.
 
 ## License
 

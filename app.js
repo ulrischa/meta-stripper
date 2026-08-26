@@ -3,9 +3,19 @@
 
 "use strict";
 
-const MAX_FILE_BYTES = 30 * 1024 * 1024;
-const MAX_PIXELS = 50_000_000;
-const JPEG_HEADER_SCAN_BYTES = 2 * 1024 * 1024;
+const DEFAULT_CONFIG = Object.freeze({
+  maxFileBytes: 30 * 1024 * 1024,
+  maxPixels: 50_000_000,
+  maxBatchFiles: 20,
+  jpegHeaderScanBytes: 2 * 1024 * 1024,
+});
+
+const runtimeConfig = window.META_STRIPPER_CONFIG || {};
+const safeInt = (value, fallback) => Number.isSafeInteger(value) && value > 0 ? value : fallback;
+const MAX_FILE_BYTES = safeInt(runtimeConfig.maxFileBytes, DEFAULT_CONFIG.maxFileBytes);
+const MAX_PIXELS = safeInt(runtimeConfig.maxPixels, DEFAULT_CONFIG.maxPixels);
+const MAX_BATCH_FILES = safeInt(runtimeConfig.maxBatchFiles, DEFAULT_CONFIG.maxBatchFiles);
+const JPEG_HEADER_SCAN_BYTES = safeInt(runtimeConfig.jpegHeaderScanBytes, DEFAULT_CONFIG.jpegHeaderScanBytes);
 
 const MIME_TO_FORMAT = new Map([
   ["image/jpeg", "jpeg"],
@@ -19,55 +29,31 @@ const FORMAT_TO_EXTENSION = new Map([
   ["image/webp", "webp"],
 ]);
 
-const imageInput = document.getElementById("image-input");
 const stripForm = document.getElementById("strip-form");
+const imageInput = document.getElementById("image-input");
 const stripButton = document.getElementById("strip-button");
 const resetButton = document.getElementById("reset-button");
+const stripMoreButton = document.getElementById("strip-more-button");
+const heroUploadButton = document.getElementById("hero-upload-button");
 const dropZone = document.getElementById("drop-zone");
-const fileSummary = document.getElementById("file-summary");
-const sourcePreview = document.getElementById("source-preview");
-const sourceName = document.getElementById("source-name");
-const sourceType = document.getElementById("source-type");
-const sourceSize = document.getElementById("source-size");
-const sourceDimensions = document.getElementById("source-dimensions");
+const fileHint = document.getElementById("file-hint");
 const fileError = document.getElementById("file-error");
+const selection = document.getElementById("selection");
+const selectedCount = document.getElementById("selected-count");
+const selectedList = document.getElementById("selected-list");
 const outputFormat = document.getElementById("output-format");
 const quality = document.getElementById("quality");
 const qualityValue = document.getElementById("quality-value");
-const result = document.getElementById("result");
-const resultTitle = document.getElementById("result-title");
-const resultPreview = document.getElementById("result-preview");
-const resultType = document.getElementById("result-type");
-const resultSize = document.getElementById("result-size");
-const sourceMarkers = document.getElementById("source-markers");
-const resultMarkers = document.getElementById("result-markers");
-const verificationBadge = document.getElementById("verification-badge");
-const verificationCopy = document.getElementById("verification-copy");
-const downloadLink = document.getElementById("download-link");
+const results = document.getElementById("results");
+const resultsTitle = document.getElementById("results-title");
+const resultsSummary = document.getElementById("results-summary");
+const resultsList = document.getElementById("results-list");
 const status = document.getElementById("status");
 const pwaStatus = document.getElementById("pwa-status");
 
-let selectedFile = null;
-let selectedFormat = null;
-let sourceObjectUrl = null;
-let resultObjectUrl = null;
+let selectedItems = [];
+let resultUrls = [];
 let processing = false;
-
-function setStatus(message) {
-  status.textContent = message;
-}
-
-function showFileError(message) {
-  fileError.textContent = message;
-  fileError.hidden = false;
-  imageInput.setAttribute("aria-invalid", "true");
-}
-
-function clearFileError() {
-  fileError.textContent = "";
-  fileError.hidden = true;
-  imageInput.removeAttribute("aria-invalid");
-}
 
 function formatBytes(bytes) {
   if (!Number.isFinite(bytes) || bytes < 0) return "—";
@@ -85,9 +71,31 @@ function formatBytes(bytes) {
   return `${value.toFixed(value >= 10 ? 1 : 2)} ${unit}`;
 }
 
+function formatMegapixels(pixels) {
+  return (pixels / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 1 });
+}
+
+fileHint.textContent = `Per image: ${formatBytes(MAX_FILE_BYTES)} and ${formatMegapixels(MAX_PIXELS)} MP. Batch: up to ${MAX_BATCH_FILES} files. Configure in config.js.`;
+
+function setStatus(message) {
+  status.textContent = message;
+}
+
+function showFileError(message) {
+  fileError.textContent = message;
+  fileError.hidden = false;
+  imageInput.setAttribute("aria-invalid", "true");
+}
+
+function clearFileError() {
+  fileError.textContent = "";
+  fileError.hidden = true;
+  imageInput.removeAttribute("aria-invalid");
+}
+
 function sanitizeBaseName(filename) {
-  const withoutExtension = filename.replace(/\.[^.]+$/, "");
-  const normalized = withoutExtension
+  const normalized = filename
+    .replace(/\.[^.]+$/, "")
     .normalize("NFKD")
     .replace(/[^\p{Letter}\p{Number}-]+/gu, "-")
     .replace(/^-+|-+$/g, "")
@@ -106,6 +114,19 @@ function readAscii(bytes, start, length) {
   }
 
   return output;
+}
+
+function readAsciiClean(bytes, start, length) {
+  let output = "";
+  const end = Math.min(start + length, bytes.length);
+
+  for (let index = start; index < end; index += 1) {
+    const value = bytes[index];
+    if (value === 0) break;
+    if (value >= 32 && value <= 126) output += String.fromCharCode(value);
+  }
+
+  return output.trim();
 }
 
 function containsAscii(bytes, start, end, needle) {
@@ -128,164 +149,13 @@ function containsAscii(bytes, start, end, needle) {
   return false;
 }
 
-async function detectImageFormat(file) {
-  const bytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-
-  const isJpeg = bytes.length >= 3 &&
-    bytes[0] === 0xff &&
-    bytes[1] === 0xd8 &&
-    bytes[2] === 0xff;
-
-  const isPng = bytes.length >= 8 &&
-    bytes[0] === 0x89 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x4e &&
-    bytes[3] === 0x47 &&
-    bytes[4] === 0x0d &&
-    bytes[5] === 0x0a &&
-    bytes[6] === 0x1a &&
-    bytes[7] === 0x0a;
-
-  const isWebp = bytes.length >= 12 &&
-    readAscii(bytes, 0, 4) === "RIFF" &&
-    readAscii(bytes, 8, 4) === "WEBP";
-
-  if (isJpeg) return "jpeg";
-  if (isPng) return "png";
-  if (isWebp) return "webp";
-
-  return null;
+function addUnique(target, value) {
+  if (value && !target.includes(value)) target.push(value);
 }
 
-function validateClaimedMime(file, detectedFormat) {
-  const claimedFormat = MIME_TO_FORMAT.get(file.type);
-  if (!claimedFormat) return detectedFormat !== null;
-  return claimedFormat === detectedFormat;
-}
-
-async function getImageDimensions(file, format) {
-  if (format === "png") {
-    const bytes = new Uint8Array(await file.slice(0, 24).arrayBuffer());
-    if (bytes.length < 24) return null;
-
-    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-    return {
-      width: view.getUint32(16, false),
-      height: view.getUint32(20, false),
-    };
-  }
-
-  if (format === "webp") {
-    const bytes = new Uint8Array(await file.slice(0, 64).arrayBuffer());
-    if (bytes.length < 30) return null;
-
-    const chunkType = readAscii(bytes, 12, 4);
-
-    if (chunkType === "VP8X") {
-      const width = 1 + bytes[24] + (bytes[25] << 8) + (bytes[26] << 16);
-      const height = 1 + bytes[27] + (bytes[28] << 8) + (bytes[29] << 16);
-      return { width, height };
-    }
-
-    if (chunkType === "VP8L" && bytes[20] === 0x2f) {
-      const width = 1 + (bytes[21] | ((bytes[22] & 0x3f) << 8));
-      const height = 1 + ((bytes[22] >> 6) | (bytes[23] << 2) | ((bytes[24] & 0x0f) << 10));
-      return { width, height };
-    }
-
-    if (
-      chunkType === "VP8 " &&
-      bytes[23] === 0x9d &&
-      bytes[24] === 0x01 &&
-      bytes[25] === 0x2a
-    ) {
-      const width = (bytes[26] | (bytes[27] << 8)) & 0x3fff;
-      const height = (bytes[28] | (bytes[29] << 8)) & 0x3fff;
-      return { width, height };
-    }
-
-    return null;
-  }
-
-  if (format === "jpeg") {
-    const scanSize = Math.min(file.size, JPEG_HEADER_SCAN_BYTES);
-    const bytes = new Uint8Array(await file.slice(0, scanSize).arrayBuffer());
-    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-
-    if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
-
-    const sofMarkers = new Set([
-      0xc0, 0xc1, 0xc2, 0xc3,
-      0xc5, 0xc6, 0xc7,
-      0xc9, 0xca, 0xcb,
-      0xcd, 0xce, 0xcf,
-    ]);
-
-    let offset = 2;
-
-    while (offset + 4 <= bytes.length) {
-      while (offset < bytes.length && bytes[offset] !== 0xff) offset += 1;
-      while (offset < bytes.length && bytes[offset] === 0xff) offset += 1;
-      if (offset >= bytes.length) break;
-
-      const marker = bytes[offset];
-      offset += 1;
-
-      if (marker === 0xd9 || marker === 0xda) break;
-      if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
-      if (offset + 2 > bytes.length) break;
-
-      const segmentLength = view.getUint16(offset, false);
-      if (segmentLength < 2 || offset + segmentLength > bytes.length) break;
-
-      if (sofMarkers.has(marker) && segmentLength >= 7) {
-        return {
-          height: view.getUint16(offset + 3, false),
-          width: view.getUint16(offset + 5, false),
-        };
-      }
-
-      offset += segmentLength;
-    }
-  }
-
-  return null;
-}
-
-function validateDimensions(dimensions) {
-  if (!dimensions) {
-    throw new Error("The image dimensions could not be read safely. Try a standard JPEG, PNG or WebP export.");
-  }
-
-  const { width, height } = dimensions;
-  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) {
-    throw new Error("The image reports invalid dimensions.");
-  }
-
-  const pixels = width * height;
-  if (!Number.isSafeInteger(pixels) || pixels > MAX_PIXELS) {
-    throw new Error(`This image is too large to process safely. The limit is ${Math.round(MAX_PIXELS / 1_000_000)} megapixels.`);
-  }
-}
-
-async function validateFile(file) {
-  if (!(file instanceof File)) throw new Error("Choose a valid local image file.");
-  if (file.size < 1) throw new Error("The selected file is empty.");
-
-  if (file.size > MAX_FILE_BYTES) {
-    throw new Error(`The selected file is larger than the ${Math.round(MAX_FILE_BYTES / 1024 / 1024)} MB safety limit.`);
-  }
-
-  const detectedFormat = await detectImageFormat(file);
-  if (!detectedFormat) throw new Error("Only real JPEG, PNG and WebP image files are accepted.");
-
-  if (!validateClaimedMime(file, detectedFormat)) {
-    throw new Error("The file MIME type does not match the image signature.");
-  }
-
-  const dimensions = await getImageDimensions(file, detectedFormat);
-  validateDimensions(dimensions);
-  return { detectedFormat, dimensions };
+function addDetail(target, label, value) {
+  if (value === null || value === undefined || value === "") return;
+  addUnique(target, `${label}: ${String(value).trim()}`);
 }
 
 function getMimeForFormat(format) {
@@ -295,45 +165,419 @@ function getMimeForFormat(format) {
   return null;
 }
 
-async function selectFile(file) {
-  clearFileError();
-  setStatus("");
+async function detectImageFormat(file) {
+  const bytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
 
-  try {
-    const { detectedFormat, dimensions } = await validateFile(file);
-    selectedFile = file;
-    selectedFormat = detectedFormat;
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "jpeg";
+  if (bytes.length >= 8 && bytes[0] === 0x89 && readAscii(bytes, 1, 3) === "PNG") return "png";
+  if (bytes.length >= 12 && readAscii(bytes, 0, 4) === "RIFF" && readAscii(bytes, 8, 4) === "WEBP") return "webp";
 
-    if (sourceObjectUrl) URL.revokeObjectURL(sourceObjectUrl);
-    sourceObjectUrl = URL.createObjectURL(file);
-    sourcePreview.src = sourceObjectUrl;
+  return null;
+}
 
-    sourceName.textContent = file.name || "Local image";
-    sourceType.textContent = getMimeForFormat(detectedFormat);
-    sourceSize.textContent = formatBytes(file.size);
-    sourceDimensions.textContent = `${dimensions.width.toLocaleString()} × ${dimensions.height.toLocaleString()} px`;
-    fileSummary.hidden = false;
+async function getImageDimensions(file, format) {
+  if (format === "png") {
+    const bytes = new Uint8Array(await file.slice(0, 24).arrayBuffer());
+    if (bytes.length < 24) return null;
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    return { width: view.getUint32(16, false), height: view.getUint32(20, false) };
+  }
 
-    clearResult();
-    setStatus("Ready to strip.");
-  } catch (error) {
-    selectedFile = null;
-    selectedFormat = null;
-    fileSummary.hidden = true;
-    clearResult();
-    showFileError(error instanceof Error ? error.message : "The image could not be validated.");
+  if (format === "webp") {
+    const bytes = new Uint8Array(await file.slice(0, 64).arrayBuffer());
+    if (bytes.length < 30) return null;
+    const chunkType = readAscii(bytes, 12, 4);
+
+    if (chunkType === "VP8X") {
+      return {
+        width: 1 + bytes[24] + (bytes[25] << 8) + (bytes[26] << 16),
+        height: 1 + bytes[27] + (bytes[28] << 8) + (bytes[29] << 16),
+      };
+    }
+
+    if (chunkType === "VP8L" && bytes[20] === 0x2f) {
+      return {
+        width: 1 + (bytes[21] | ((bytes[22] & 0x3f) << 8)),
+        height: 1 + ((bytes[22] >> 6) | (bytes[23] << 2) | ((bytes[24] & 0x0f) << 10)),
+      };
+    }
+
+    if (chunkType === "VP8 " && bytes[23] === 0x9d && bytes[24] === 0x01 && bytes[25] === 0x2a) {
+      return {
+        width: (bytes[26] | (bytes[27] << 8)) & 0x3fff,
+        height: (bytes[28] | (bytes[29] << 8)) & 0x3fff,
+      };
+    }
+
+    return null;
+  }
+
+  if (format === "jpeg") {
+    const scanSize = Math.min(file.size, JPEG_HEADER_SCAN_BYTES);
+    const bytes = new Uint8Array(await file.slice(0, scanSize).arrayBuffer());
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const sof = new Set([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf]);
+    let offset = 2;
+
+    while (offset + 4 <= bytes.length) {
+      while (offset < bytes.length && bytes[offset] !== 0xff) offset += 1;
+      while (offset < bytes.length && bytes[offset] === 0xff) offset += 1;
+      if (offset >= bytes.length) break;
+
+      const marker = bytes[offset++];
+      if (marker === 0xd9 || marker === 0xda) break;
+      if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
+      if (offset + 2 > bytes.length) break;
+
+      const length = view.getUint16(offset, false);
+      if (length < 2 || offset + length > bytes.length) break;
+
+      if (sof.has(marker) && length >= 7) {
+        return {
+          height: view.getUint16(offset + 3, false),
+          width: view.getUint16(offset + 5, false),
+        };
+      }
+
+      offset += length;
+    }
+  }
+
+  return null;
+}
+
+function validateDimensions(dimensions) {
+  if (!dimensions) throw new Error("The image dimensions could not be read safely.");
+
+  const { width, height } = dimensions;
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) {
+    throw new Error("The image reports invalid dimensions.");
+  }
+
+  const pixels = width * height;
+  if (!Number.isSafeInteger(pixels) || pixels > MAX_PIXELS) {
+    throw new Error(`The image exceeds the configured ${formatMegapixels(MAX_PIXELS)} MP limit.`);
   }
 }
 
-function getRequestedMime() {
-  if (outputFormat.value !== "auto") return outputFormat.value;
-  return getMimeForFormat(selectedFormat) || "image/png";
+function parseExifDetails(bytes, start, end) {
+  const details = [];
+  let tiffStart = start;
+
+  if (end - start >= 6 && readAscii(bytes, start, 4) === "Exif" && bytes[start + 4] === 0 && bytes[start + 5] === 0) {
+    tiffStart += 6;
+  }
+
+  if (tiffStart + 8 > end) return details;
+  const byteOrder = readAscii(bytes, tiffStart, 2);
+  const little = byteOrder === "II";
+  if (!little && byteOrder !== "MM") return details;
+
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const u16 = (offset) => offset >= tiffStart && offset + 2 <= end ? view.getUint16(offset, little) : null;
+  const u32 = (offset) => offset >= tiffStart && offset + 4 <= end ? view.getUint32(offset, little) : null;
+
+  if (u16(tiffStart + 2) !== 42) return details;
+
+  function entryValue(entryOffset, type, count) {
+    const sizes = { 1: 1, 2: 1, 3: 2, 4: 4, 7: 1, 9: 4 };
+    const unit = sizes[type];
+    if (!unit || count < 1 || count > 512) return null;
+
+    const length = unit * count;
+    let valueOffset = entryOffset + 8;
+
+    if (length > 4) {
+      const relative = u32(entryOffset + 8);
+      if (relative === null) return null;
+      valueOffset = tiffStart + relative;
+    }
+
+    if (valueOffset < tiffStart || valueOffset + length > end) return null;
+    if (type === 2) return readAsciiClean(bytes, valueOffset, Math.min(count, 160));
+    if (type === 3 && count === 1) return u16(valueOffset);
+    if (type === 4 && count === 1) return u32(valueOffset);
+    return null;
+  }
+
+  function parseIfd(relativeOffset, tags) {
+    const offset = tiffStart + relativeOffset;
+    const count = u16(offset);
+    const pointers = {};
+    if (count === null || count > 512) return pointers;
+
+    for (let index = 0; index < count; index += 1) {
+      const entry = offset + 2 + index * 12;
+      if (entry + 12 > end) break;
+      const tag = u16(entry);
+      const type = u16(entry + 2);
+      const valueCount = u32(entry + 4);
+      if (tag === null || type === null || valueCount === null) continue;
+
+      if (tag === 0x8769 || tag === 0x8825) {
+        const pointer = entryValue(entry, type, valueCount);
+        if (Number.isInteger(pointer)) pointers[tag] = pointer;
+        continue;
+      }
+
+      const label = tags.get(tag);
+      if (!label) continue;
+      addDetail(details, label, entryValue(entry, type, valueCount));
+    }
+
+    return pointers;
+  }
+
+  const mainTags = new Map([
+    [0x010e, "Description"], [0x010f, "Camera make"], [0x0110, "Camera model"],
+    [0x0131, "Software"], [0x0132, "Modified"], [0x013b, "Artist"], [0x8298, "Copyright"],
+  ]);
+  const exifTags = new Map([
+    [0x9003, "Date taken"], [0x9004, "Digitized"], [0xa431, "Camera serial"],
+    [0xa433, "Lens make"], [0xa434, "Lens model"],
+  ]);
+
+  const firstIfd = u32(tiffStart + 4);
+  if (!Number.isInteger(firstIfd)) return details;
+  const pointers = parseIfd(firstIfd, mainTags);
+  if (Number.isInteger(pointers[0x8769])) parseIfd(pointers[0x8769], exifTags);
+  if (Number.isInteger(pointers[0x8825])) addDetail(details, "GPS", "location data present");
+
+  return details.slice(0, 12);
 }
 
-function setProcessingState(isProcessing) {
-  processing = isProcessing;
-  stripButton.setAttribute("aria-disabled", String(isProcessing));
-  resetButton.setAttribute("aria-disabled", String(isProcessing));
+function scanJpeg(bytes) {
+  const markers = [];
+  const technical = [];
+  const details = [];
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let offset = 2;
+
+  while (offset + 4 <= bytes.length) {
+    while (offset < bytes.length && bytes[offset] !== 0xff) offset += 1;
+    while (offset < bytes.length && bytes[offset] === 0xff) offset += 1;
+    if (offset >= bytes.length) break;
+    const marker = bytes[offset++];
+    if (marker === 0xd9 || marker === 0xda) break;
+    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
+    if (offset + 2 > bytes.length) break;
+
+    const length = view.getUint16(offset, false);
+    if (length < 2 || offset + length > bytes.length) break;
+    const start = offset + 2;
+    const end = offset + length;
+
+    if (marker === 0xe1 && containsAscii(bytes, start, end, "Exif")) {
+      addUnique(markers, "EXIF / GPS");
+      parseExifDetails(bytes, start, end).forEach((detail) => addUnique(details, detail));
+    } else if (marker === 0xe1) {
+      addUnique(markers, "XMP / APP1");
+    } else if (marker === 0xed) {
+      addUnique(markers, "IPTC / APP13");
+    } else if (marker === 0xeb) {
+      addUnique(markers, containsAscii(bytes, start, end, "c2pa") || containsAscii(bytes, start, end, "jumb") ? "C2PA / JUMBF" : "APP11 metadata");
+    } else if (marker === 0xfe) {
+      addUnique(markers, "JPEG comment");
+      addDetail(details, "Comment", readAsciiClean(bytes, start, Math.min(end - start, 120)));
+    } else if (marker === 0xe2 && containsAscii(bytes, start, end, "ICC_PROFILE")) {
+      addUnique(technical, "ICC color profile");
+    } else if (marker === 0xe0) {
+      addUnique(technical, "JFIF header");
+    }
+
+    offset += length;
+  }
+
+  return { markers, technical, details };
+}
+
+function scanPng(bytes) {
+  const markers = [];
+  const technical = [];
+  const details = [];
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let offset = 8;
+
+  while (offset + 12 <= bytes.length) {
+    const length = view.getUint32(offset, false);
+    const type = readAscii(bytes, offset + 4, 4);
+    const start = offset + 8;
+    const end = start + length;
+    if (end + 4 > bytes.length) break;
+
+    if (type === "eXIf") {
+      addUnique(markers, "EXIF / GPS");
+      parseExifDetails(bytes, start, end).forEach((detail) => addUnique(details, detail));
+    }
+    if (type === "iTXt" || type === "tEXt" || type === "zTXt") {
+      addUnique(markers, type === "iTXt" ? "XMP / text metadata" : "Text metadata");
+      if (type !== "zTXt") addDetail(details, "Text chunk", readAsciiClean(bytes, start, Math.min(length, 80)));
+    }
+    if (type === "tIME") addUnique(markers, "Timestamp");
+    if (type === "caBX") addUnique(markers, "C2PA / JUMBF");
+    if (type === "iCCP") addUnique(technical, "ICC color profile");
+    if (type === "pHYs") addUnique(technical, "Pixel density");
+    if (type === "sRGB") addUnique(technical, "sRGB rendering intent");
+
+    offset = end + 4;
+    if (type === "IEND") break;
+  }
+
+  return { markers, technical, details };
+}
+
+function scanWebp(bytes) {
+  const markers = [];
+  const technical = [];
+  const details = [];
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let offset = 12;
+
+  while (offset + 8 <= bytes.length) {
+    const type = readAscii(bytes, offset, 4);
+    const length = view.getUint32(offset + 4, true);
+    const start = offset + 8;
+    const end = start + length;
+    if (end > bytes.length) break;
+
+    if (type === "EXIF") {
+      addUnique(markers, "EXIF / GPS");
+      parseExifDetails(bytes, start, end).forEach((detail) => addUnique(details, detail));
+    }
+    if (type === "XMP ") addUnique(markers, "XMP");
+    if (type === "C2PA" || containsAscii(bytes, start, end, "c2pa") || containsAscii(bytes, start, end, "jumb")) addUnique(markers, "C2PA / JUMBF");
+    if (type === "ICCP") addUnique(technical, "ICC color profile");
+
+    offset = end + (length % 2);
+  }
+
+  return { markers, technical, details };
+}
+
+async function scanMetadata(blob, format) {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  if (format === "jpeg") return scanJpeg(bytes);
+  if (format === "png") return scanPng(bytes);
+  if (format === "webp") return scanWebp(bytes);
+  return { markers: ["Unknown format"], technical: [], details: [] };
+}
+
+async function validateFile(file) {
+  if (!(file instanceof File)) throw new Error("Choose a valid local image file.");
+  if (file.size < 1) throw new Error("The file is empty.");
+  if (file.size > MAX_FILE_BYTES) throw new Error(`The file exceeds the configured ${formatBytes(MAX_FILE_BYTES)} limit.`);
+
+  const format = await detectImageFormat(file);
+  if (!format) throw new Error("Only real JPEG, PNG and WebP images are accepted.");
+  const claimed = MIME_TO_FORMAT.get(file.type);
+  if (claimed && claimed !== format) throw new Error("The file MIME type does not match its image signature.");
+
+  const dimensions = await getImageDimensions(file, format);
+  validateDimensions(dimensions);
+  const sourceScan = await scanMetadata(file, format);
+  return { format, dimensions, sourceScan };
+}
+
+function makeElement(tag, className, text) {
+  const element = document.createElement(tag);
+  if (className) element.className = className;
+  if (text !== undefined) element.textContent = text;
+  return element;
+}
+
+function appendFact(list, label, value) {
+  const row = document.createElement("div");
+  row.append(makeElement("dt", "", label), makeElement("dd", "", value));
+  list.append(row);
+}
+
+function appendMetadata(body, scan) {
+  body.append(makeElement("p", "metadata-title", "Source metadata to remove"));
+
+  if (scan.markers.length === 0) {
+    body.append(makeElement("p", "metadata-none", "No known source metadata marker detected. The image will still be re-encoded into a new file."));
+  } else {
+    const chips = makeElement("ul", "metadata-chips");
+    scan.markers.forEach((marker) => chips.append(makeElement("li", "", marker)));
+    body.append(chips);
+  }
+
+  if (scan.details.length > 0) {
+    const list = makeElement("ul", "metadata-details");
+    scan.details.forEach((detail) => list.append(makeElement("li", "", detail)));
+    body.append(list);
+  }
+
+  if (scan.technical.length > 0) {
+    body.append(makeElement("p", "metadata-none", `Technical source info detected separately: ${scan.technical.join(", ")}. The browser may generate new technical encoding data in the export.`));
+  }
+}
+
+function renderSelected() {
+  selectedList.replaceChildren();
+  selection.hidden = selectedItems.length === 0;
+  selectedCount.textContent = selectedItems.length ? `${selectedItems.length} selected` : "";
+  stripButton.textContent = selectedItems.length > 1 ? `Strip ${selectedItems.length} images` : "Strip metadata";
+
+  selectedItems.forEach((item) => {
+    const card = makeElement("article", "image-card");
+    const preview = makeElement("img", "preview-image");
+    preview.src = item.sourceUrl;
+    preview.alt = `Preview of ${item.file.name}`;
+
+    const body = makeElement("div", "image-card-body");
+    body.append(makeElement("p", "summary-kicker", "Selected image"));
+    body.append(makeElement("p", "source-name", item.file.name || "Local image"));
+    const facts = makeElement("dl", "file-facts");
+    appendFact(facts, "Type", getMimeForFormat(item.format));
+    appendFact(facts, "Size", formatBytes(item.file.size));
+    appendFact(facts, "Dimensions", `${item.dimensions.width.toLocaleString()} × ${item.dimensions.height.toLocaleString()} px`);
+    body.append(facts);
+    appendMetadata(body, item.sourceScan);
+    card.append(preview, body);
+    selectedList.append(card);
+  });
+}
+
+function clearResults() {
+  resultUrls.forEach((url) => URL.revokeObjectURL(url));
+  resultUrls = [];
+  resultsList.replaceChildren();
+  results.hidden = true;
+  resultsSummary.textContent = "";
+}
+
+async function addFiles(fileList) {
+  if (processing) return;
+  clearFileError();
+  clearResults();
+
+  const incoming = Array.from(fileList || []);
+  if (!incoming.length) return;
+
+  const available = MAX_BATCH_FILES - selectedItems.length;
+  if (available <= 0) {
+    showFileError(`The configured batch limit is ${MAX_BATCH_FILES} images.`);
+    return;
+  }
+
+  const errors = [];
+  const accepted = incoming.slice(0, available);
+  setStatus(`Inspecting ${accepted.length} image${accepted.length === 1 ? "" : "s"} locally…`);
+
+  for (const file of accepted) {
+    try {
+      const { format, dimensions, sourceScan } = await validateFile(file);
+      selectedItems.push({ file, format, dimensions, sourceScan, sourceUrl: URL.createObjectURL(file) });
+    } catch (error) {
+      errors.push(`${file.name || "File"}: ${error instanceof Error ? error.message : "Could not inspect file."}`);
+    }
+  }
+
+  if (incoming.length > available) errors.push(`Only ${available} additional files fit within the configured batch limit.`);
+  renderSelected();
+  if (errors.length) showFileError(errors.join(" "));
+  setStatus(selectedItems.length ? `${selectedItems.length} image${selectedItems.length === 1 ? "" : "s"} ready to strip.` : "");
 }
 
 async function decodeImage(file) {
@@ -345,65 +589,47 @@ async function decodeImage(file) {
     }
   }
 
-  const objectUrl = URL.createObjectURL(file);
+  const url = URL.createObjectURL(file);
   const image = new Image();
-
   try {
-    image.src = objectUrl;
+    image.src = url;
     await image.decode();
-
     return {
       width: image.naturalWidth,
       height: image.naturalHeight,
-      draw(context) {
-        context.drawImage(image, 0, 0);
-      },
+      draw(context) { context.drawImage(image, 0, 0); },
       close() {},
     };
   } finally {
-    URL.revokeObjectURL(objectUrl);
+    URL.revokeObjectURL(url);
   }
 }
 
-function canvasToBlob(canvas, mime, qualityNumber) {
+function canvasToBlob(canvas, mime, outputQuality) {
   return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => blob ? resolve(blob) : reject(new Error("This browser could not encode the cleaned image.")),
-      mime,
-      qualityNumber
-    );
+    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("This browser could not encode the stripped image.")), mime, outputQuality);
   });
 }
 
-async function reencodeImage(file, mime, qualityNumber) {
+async function reencodeImage(file, mime, outputQuality) {
   const decoded = await decodeImage(file);
-
   try {
     validateDimensions({ width: decoded.width, height: decoded.height });
-
     const canvas = document.createElement("canvas");
     canvas.width = decoded.width;
     canvas.height = decoded.height;
-
-    const context = canvas.getContext("2d", {
-      alpha: mime !== "image/jpeg",
-      willReadFrequently: false,
-    });
-
-    if (!context) throw new Error("The browser could not create a safe image canvas.");
+    const context = canvas.getContext("2d", { alpha: mime !== "image/jpeg" });
+    if (!context) throw new Error("The browser could not create an image canvas.");
 
     if (mime === "image/jpeg") {
       context.fillStyle = "#ffffff";
       context.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    if (typeof decoded.draw === "function") {
-      decoded.draw(context);
-    } else {
-      context.drawImage(decoded, 0, 0);
-    }
+    if (typeof decoded.draw === "function") decoded.draw(context);
+    else context.drawImage(decoded, 0, 0);
 
-    const blob = await canvasToBlob(canvas, mime, qualityNumber);
+    const blob = await canvasToBlob(canvas, mime, outputQuality);
     canvas.width = 1;
     canvas.height = 1;
     return blob;
@@ -412,250 +638,138 @@ async function reencodeImage(file, mime, qualityNumber) {
   }
 }
 
-function addUnique(target, label) {
-  if (!target.includes(label)) target.push(label);
+function requestedMime(item) {
+  return outputFormat.value === "auto" ? getMimeForFormat(item.format) : outputFormat.value;
 }
 
-function scanJpegMetadata(bytes) {
-  const markers = [];
-  const technical = [];
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+function renderResult(item, blob, scan) {
+  const url = URL.createObjectURL(blob);
+  resultUrls.push(url);
+  const blocked = scan.markers.length > 0;
+  const card = makeElement("article", `image-card result-card${blocked ? " is-blocked" : ""}`);
+  const preview = makeElement("img", "preview-image");
+  preview.src = url;
+  preview.alt = `Preview of stripped ${item.file.name}`;
 
-  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) {
-    return { markers: ["Invalid JPEG structure"], technical };
+  const body = makeElement("div", "image-card-body");
+  body.append(makeElement("p", "summary-kicker", "Stripped result"));
+  body.append(makeElement("p", "source-name", item.file.name || "Local image"));
+  const facts = makeElement("dl", "result-facts");
+  appendFact(facts, "Output", blob.type);
+  appendFact(facts, "Size", formatBytes(blob.size));
+  appendFact(facts, "Removed source areas", item.sourceScan.markers.length ? item.sourceScan.markers.join(", ") : "No known marker detected before stripping");
+  appendFact(facts, "Known source markers after", scan.markers.length ? scan.markers.join(", ") : "None detected");
+  body.append(facts);
+
+  if (blocked) {
+    body.append(makeElement("p", "blocked-label", "Download blocked"));
+    body.append(makeElement("p", "verification-copy", "A known source-metadata marker remains in the browser-generated export."));
+  } else {
+    body.append(makeElement("p", "clean-label", "Known source markers clean"));
+    body.append(makeElement("p", "verification-copy", "No known EXIF, XMP, IPTC or embedded C2PA/JUMBF source marker was detected. Platform-side CR/C2PA matching still cannot be guaranteed."));
+    const extension = FORMAT_TO_EXTENSION.get(blob.type) || "img";
+    const link = makeElement("a", "button button-primary download-button", "Download stripped image");
+    link.href = url;
+    link.download = `${sanitizeBaseName(item.file.name)}-stripped.${extension}`;
+    body.append(link);
   }
 
-  let offset = 2;
-
-  while (offset + 4 <= bytes.length) {
-    while (offset < bytes.length && bytes[offset] !== 0xff) offset += 1;
-    while (offset < bytes.length && bytes[offset] === 0xff) offset += 1;
-    if (offset >= bytes.length) break;
-
-    const marker = bytes[offset];
-    offset += 1;
-
-    if (marker === 0xd9 || marker === 0xda) break;
-    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
-    if (offset + 2 > bytes.length) break;
-
-    const segmentLength = view.getUint16(offset, false);
-    if (segmentLength < 2 || offset + segmentLength > bytes.length) break;
-
-    const payloadStart = offset + 2;
-    const payloadEnd = offset + segmentLength;
-
-    if (marker === 0xe1) {
-      if (containsAscii(bytes, payloadStart, payloadEnd, "Exif")) {
-        addUnique(markers, "EXIF");
-      } else {
-        addUnique(markers, "XMP / APP1");
-      }
-    } else if (marker === 0xed) {
-      addUnique(markers, "IPTC / APP13");
-    } else if (marker === 0xeb) {
-      if (
-        containsAscii(bytes, payloadStart, payloadEnd, "c2pa") ||
-        containsAscii(bytes, payloadStart, payloadEnd, "jumb") ||
-        containsAscii(bytes, payloadStart, payloadEnd, "jumd")
-      ) {
-        addUnique(markers, "C2PA / JUMBF");
-      } else {
-        addUnique(markers, "APP11 metadata");
-      }
-    } else if (marker === 0xfe) {
-      addUnique(markers, "JPEG comment");
-    } else if (marker === 0xe2 && containsAscii(bytes, payloadStart, payloadEnd, "ICC_PROFILE")) {
-      addUnique(technical, "ICC color profile");
-    } else if (marker === 0xe0) {
-      addUnique(technical, "JFIF header");
-    } else if (marker === 0xee) {
-      addUnique(technical, "Adobe encoder marker");
-    }
-
-    offset += segmentLength;
-  }
-
-  return { markers, technical };
+  card.append(preview, body);
+  resultsList.append(card);
+  return !blocked;
 }
 
-function scanPngMetadata(bytes) {
-  const markers = [];
-  const technical = [];
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  let offset = 8;
-
-  while (offset + 12 <= bytes.length) {
-    const length = view.getUint32(offset, false);
-    const type = readAscii(bytes, offset + 4, 4);
-    const dataStart = offset + 8;
-    const dataEnd = dataStart + length;
-    if (dataEnd + 4 > bytes.length) break;
-
-    if (type === "eXIf") addUnique(markers, "EXIF");
-    if (type === "iTXt" || type === "tEXt" || type === "zTXt") addUnique(markers, "Text / XMP");
-    if (type === "tIME") addUnique(markers, "Timestamp");
-    if (type === "caBX") addUnique(markers, "C2PA / JUMBF");
-    if (type === "iCCP") addUnique(technical, "ICC color profile");
-    if (type === "sRGB") addUnique(technical, "sRGB rendering intent");
-    if (type === "gAMA") addUnique(technical, "Gamma");
-    if (type === "cHRM") addUnique(technical, "Chromaticity");
-    if (type === "pHYs") addUnique(technical, "Pixel density");
-
-    offset = dataEnd + 4;
-    if (type === "IEND") break;
-  }
-
-  return { markers, technical };
+function setProcessing(value) {
+  processing = value;
+  stripButton.setAttribute("aria-disabled", String(value));
+  resetButton.setAttribute("aria-disabled", String(value));
+  heroUploadButton.setAttribute("aria-disabled", String(value));
 }
 
-function scanWebpMetadata(bytes) {
-  const markers = [];
-  const technical = [];
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  let offset = 12;
-
-  while (offset + 8 <= bytes.length) {
-    const type = readAscii(bytes, offset, 4);
-    const length = view.getUint32(offset + 4, true);
-    const dataStart = offset + 8;
-    const dataEnd = dataStart + length;
-    if (dataEnd > bytes.length) break;
-
-    if (type === "EXIF") addUnique(markers, "EXIF");
-    if (type === "XMP ") addUnique(markers, "XMP");
-    if (type === "C2PA") addUnique(markers, "C2PA / JUMBF");
-    if (type === "ICCP") addUnique(technical, "ICC color profile");
-
-    if (
-      containsAscii(bytes, dataStart, dataEnd, "c2pa") ||
-      containsAscii(bytes, dataStart, dataEnd, "jumb")
-    ) {
-      addUnique(markers, "C2PA / JUMBF");
-    }
-
-    offset = dataEnd + (length % 2);
-  }
-
-  return { markers, technical };
-}
-
-async function scanMetadata(blob, format) {
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  if (format === "jpeg") return scanJpegMetadata(bytes);
-  if (format === "png") return scanPngMetadata(bytes);
-  if (format === "webp") return scanWebpMetadata(bytes);
-  return { markers: ["Unknown output format"], technical: [] };
-}
-
-function clearResult() {
-  if (resultObjectUrl) {
-    URL.revokeObjectURL(resultObjectUrl);
-    resultObjectUrl = null;
-  }
-
-  result.hidden = true;
-  resultPreview.removeAttribute("src");
-  downloadLink.hidden = true;
-  downloadLink.removeAttribute("href");
-  verificationBadge.classList.remove("is-clean", "is-blocked");
-  verificationBadge.textContent = "CHECKING";
-}
-
-async function processImage() {
+async function processImages() {
   if (processing) return;
   clearFileError();
 
-  if (!selectedFile || !selectedFormat) {
-    showFileError("Choose a JPEG, PNG or WebP image first.");
+  if (!selectedItems.length) {
+    showFileError("Choose at least one JPEG, PNG or WebP image first.");
     imageInput.focus();
     return;
   }
 
-  setProcessingState(true);
-  clearResult();
-  setStatus("Stripping source metadata locally…");
+  setProcessing(true);
+  clearResults();
+  const outputQuality = Number(quality.value) / 100;
+  let clean = 0;
+  let failed = 0;
 
   try {
-    const requestedMime = getRequestedMime();
-    const qualityNumber = Number(quality.value) / 100;
-    const sourceScan = await scanMetadata(selectedFile, selectedFormat);
-    const outputBlob = await reencodeImage(selectedFile, requestedMime, qualityNumber);
-    const actualFormat = MIME_TO_FORMAT.get(outputBlob.type);
+    for (let index = 0; index < selectedItems.length; index += 1) {
+      const item = selectedItems[index];
+      setStatus(`Stripping ${index + 1} of ${selectedItems.length}: ${item.file.name}`);
 
-    if (!actualFormat) throw new Error("The browser returned an unsupported output format.");
-
-    const outputScan = await scanMetadata(outputBlob, actualFormat);
-    const hasKnownSourceMarkers = outputScan.markers.length > 0;
-
-    resultObjectUrl = URL.createObjectURL(outputBlob);
-    resultPreview.src = resultObjectUrl;
-    resultType.textContent = outputBlob.type;
-    resultSize.textContent = formatBytes(outputBlob.size);
-    sourceMarkers.textContent = sourceScan.markers.length > 0 ? sourceScan.markers.join(", ") : "No known source markers detected";
-    resultMarkers.textContent = outputScan.markers.length > 0 ? outputScan.markers.join(", ") : "None detected";
-    result.hidden = false;
-
-    if (hasKnownSourceMarkers) {
-      verificationBadge.textContent = "DOWNLOAD BLOCKED";
-      verificationBadge.classList.add("is-blocked");
-      verificationCopy.textContent = "A known source-metadata marker is still present in the browser-generated export. Meta-Stripper will not offer this file for download.";
-      downloadLink.hidden = true;
-      setStatus("Export blocked because a known metadata marker remained.");
-    } else {
-      verificationBadge.textContent = "KNOWN MARKERS CLEAN";
-      verificationBadge.classList.add("is-clean");
-      verificationCopy.textContent = "No known EXIF, XMP, IPTC or embedded C2PA/JUMBF source marker was detected in the export. Technical encoding information such as color or density data may still exist, and platform-side CR/C2PA matching cannot be guaranteed.";
-
-      const extension = FORMAT_TO_EXTENSION.get(outputBlob.type) || "img";
-      downloadLink.download = `${sanitizeBaseName(selectedFile.name)}-stripped.${extension}`;
-      downloadLink.href = resultObjectUrl;
-      downloadLink.hidden = false;
-      setStatus("Stripping complete. The cleaned file is ready to download.");
+      try {
+        const blob = await reencodeImage(item.file, requestedMime(item), outputQuality);
+        const format = MIME_TO_FORMAT.get(blob.type);
+        if (!format) throw new Error("The browser returned an unsupported output format.");
+        const scan = await scanMetadata(blob, format);
+        if (renderResult(item, blob, scan)) clean += 1;
+        else failed += 1;
+      } catch (error) {
+        failed += 1;
+        const card = makeElement("article", "image-card result-card is-blocked");
+        const body = makeElement("div", "image-card-body");
+        body.append(makeElement("p", "summary-kicker", "Processing error"));
+        body.append(makeElement("p", "source-name", item.file.name || "Local image"));
+        body.append(makeElement("p", "blocked-label", error instanceof Error ? error.message : "This image could not be processed."));
+        card.append(body);
+        resultsList.append(card);
+      }
     }
 
-    resultTitle.focus();
-  } catch (error) {
-    clearResult();
-    showFileError(error instanceof Error ? error.message : "The image could not be processed.");
-    setStatus("Processing failed.");
+    results.hidden = false;
+    resultsSummary.textContent = failed ? `${clean} CLEAN · ${failed} BLOCKED/FAILED` : `${clean} CLEAN`;
+    setStatus(failed ? "Batch finished. Review blocked or failed items." : `${clean} image${clean === 1 ? "" : "s"} stripped successfully.`);
+    resultsTitle.focus();
   } finally {
-    setProcessingState(false);
+    setProcessing(false);
   }
 }
 
+function clearSelection() {
+  selectedItems.forEach((item) => URL.revokeObjectURL(item.sourceUrl));
+  selectedItems = [];
+  selectedList.replaceChildren();
+  selection.hidden = true;
+  selectedCount.textContent = "";
+}
+
 function resetApp() {
-  selectedFile = null;
-  selectedFormat = null;
+  clearSelection();
+  clearResults();
   clearFileError();
-  clearResult();
-
-  if (sourceObjectUrl) {
-    URL.revokeObjectURL(sourceObjectUrl);
-    sourceObjectUrl = null;
-  }
-
-  sourcePreview.removeAttribute("src");
-  fileSummary.hidden = true;
-  sourceName.textContent = "";
-  sourceType.textContent = "—";
-  sourceSize.textContent = "—";
-  sourceDimensions.textContent = "Checked before decoding";
+  imageInput.value = "";
   outputFormat.value = "auto";
   quality.value = "92";
   qualityValue.value = "92%";
   qualityValue.textContent = "92%";
+  stripButton.textContent = "Strip metadata";
   setStatus("");
 }
 
+function openImagePicker() {
+  if (processing) return;
+  document.getElementById("stripper").scrollIntoView({ block: "start" });
+  imageInput.click();
+}
+
 imageInput.addEventListener("change", () => {
-  const [file] = imageInput.files || [];
-  if (file) selectFile(file);
+  addFiles(imageInput.files);
+  imageInput.value = "";
 });
 
 stripForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  processImage();
+  processImages();
 });
 
 stripForm.addEventListener("reset", (event) => {
@@ -666,49 +780,36 @@ stripForm.addEventListener("reset", (event) => {
   queueMicrotask(resetApp);
 });
 
+stripMoreButton.addEventListener("click", () => {
+  resetApp();
+  openImagePicker();
+});
+
+heroUploadButton.addEventListener("click", openImagePicker);
+
 quality.addEventListener("input", () => {
   const label = `${quality.value}%`;
   qualityValue.value = label;
   qualityValue.textContent = label;
 });
 
-for (const eventName of ["dragenter", "dragover"]) {
-  dropZone.addEventListener(eventName, (event) => {
-    event.preventDefault();
-    if (!processing) dropZone.classList.add("is-dragover");
-  });
-}
+["dragenter", "dragover"].forEach((name) => dropZone.addEventListener(name, (event) => {
+  event.preventDefault();
+  if (!processing) dropZone.classList.add("is-dragover");
+}));
 
-for (const eventName of ["dragleave", "drop"]) {
-  dropZone.addEventListener(eventName, (event) => {
-    event.preventDefault();
-    dropZone.classList.remove("is-dragover");
-  });
-}
+["dragleave", "drop"].forEach((name) => dropZone.addEventListener(name, (event) => {
+  event.preventDefault();
+  dropZone.classList.remove("is-dragover");
+}));
 
 dropZone.addEventListener("drop", (event) => {
-  if (processing) return;
-  const [file] = event.dataTransfer?.files || [];
-
-  if (!file) {
-    showFileError("Drop one JPEG, PNG or WebP image file.");
-    return;
-  }
-
-  try {
-    const transfer = new DataTransfer();
-    transfer.items.add(file);
-    imageInput.files = transfer.files;
-  } catch {
-    // Some browsers do not permit assigning to input.files.
-  }
-
-  selectFile(file);
+  if (!processing) addFiles(event.dataTransfer?.files);
 });
 
 window.addEventListener("beforeunload", () => {
-  if (sourceObjectUrl) URL.revokeObjectURL(sourceObjectUrl);
-  if (resultObjectUrl) URL.revokeObjectURL(resultObjectUrl);
+  selectedItems.forEach((item) => URL.revokeObjectURL(item.sourceUrl));
+  resultUrls.forEach((url) => URL.revokeObjectURL(url));
 });
 
 if ("serviceWorker" in navigator && window.isSecureContext) {

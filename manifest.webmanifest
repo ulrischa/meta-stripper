@@ -1,7 +1,7 @@
 {
   "name": "Meta-Stripper",
   "short_name": "Meta-Stripper",
-  "description": "Strip source metadata and embedded C2PA/JUMBF blocks from images locally in your browser.",
+  "description": "Strip image metadata locally in your browser, including batches of JPEG, PNG and WebP files.",
   "id": "./",
   "start_url": "./",
   "scope": "./",

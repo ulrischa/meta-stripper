@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Meta-Stripper removes source metadata and embedded C2PA/JUMBF blocks from JPEG, PNG and WebP images locally in your browser. No upload, no tracking.">
+  <meta name="description" content="Strip image metadata locally in your browser. Batch-process JPEG, PNG and WebP files without uploads, tracking or third-party code.">
   <meta name="theme-color" content="#170019">
   <meta name="color-scheme" content="light dark">
   <meta name="robots" content="index, follow, max-image-preview:large">
@@ -12,214 +12,76 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./batch.css">
+  <script src="./config.js" defer></script>
   <script src="./app.js" defer></script>
 </head>
 <body>
-  <a class="skip-link" href="#main-content">Skip to the stripper</a>
+  <a class="skip-link" href="#stripper">Skip to image selection</a>
+  <header class="site-header"><div class="header-inner">
+    <a class="brand" href="./" aria-label="Meta-Stripper home"><img src="./assets/icon.svg" width="48" height="48" alt=""><span>Meta-Stripper</span></a>
+    <nav aria-label="Primary"><ul role="list"><li><a href="#stripper">Strip</a></li><li><a href="#privacy">Privacy</a></li><li><a href="#limits">Limits</a></li></ul></nav>
+  </div></header>
 
-  <header class="site-header">
-    <div class="header-inner">
-      <a class="brand" href="./" aria-label="Meta-Stripper home">
-        <img src="./assets/icon.svg" width="48" height="48" alt="">
-        <span>Meta-Stripper</span>
-      </a>
-      <nav aria-label="Primary">
-        <ul role="list">
-          <li><a href="#stripper">Strip</a></li>
-          <li><a href="#privacy">Privacy</a></li>
-          <li><a href="#limits">Limits</a></li>
-        </ul>
-      </nav>
-    </div>
-  </header>
-
-  <main id="main-content" tabindex="-1">
+  <main>
     <section class="hero" aria-labelledby="hero-title">
       <div class="hero-copy">
-        <p class="eyebrow">100% local · offline capable · zero dependencies</p>
-        <h1 id="hero-title">Take it all off.<br><span>Metadata only.</span></h1>
-        <p class="hero-lede">
-          Re-encode an image from its pixels and leave source metadata, EXIF, XMP,
-          IPTC and embedded C2PA/JUMBF provenance blocks behind.
-        </p>
+        <h1 id="hero-title">Strip Metadata off.<br><span>Keep Image on.</span></h1>
+        <p class="hero-lede">Re-encode one image or a whole batch from their pixels and leave source EXIF, XMP, IPTC and embedded C2PA/JUMBF data behind.</p>
         <ul class="trust-list" role="list">
-          <li><span aria-hidden="true">✓</span> Your image never leaves this device</li>
+          <li><span aria-hidden="true">✓</span> Images never leave this device</li>
           <li><span aria-hidden="true">✓</span> No account, analytics, CDN or upload API</li>
-          <li><span aria-hidden="true">✓</span> Works offline after the first successful visit</li>
+          <li><span aria-hidden="true">✓</span> Offline after the first successful visit</li>
         </ul>
       </div>
-
       <figure class="hero-mark">
-        <div class="neon-sign" aria-hidden="true">
-          <img src="./assets/icon.svg" width="240" height="240" alt="">
-        </div>
-        <figcaption>Pixels in. Source metadata out.</figcaption>
+        <button id="hero-upload-button" class="neon-sign" type="button" aria-label="Choose images to strip"><img src="./assets/icon.svg" width="260" height="260" alt=""><span class="visually-hidden">Choose images</span></button>
+        <figcaption>Tap the dancer to choose images.</figcaption>
       </figure>
     </section>
 
-    <section id="stripper" class="workspace-shell" aria-labelledby="stripper-title">
-      <div class="workspace panel">
-        <div class="panel-heading">
-          <div>
-            <p class="step-label">Main stage</p>
-            <h2 id="stripper-title">Strip an image</h2>
-          </div>
-          <span class="local-badge">LOCAL ONLY</span>
+    <section id="stripper" class="workspace-shell" aria-labelledby="stripper-title"><div class="workspace panel">
+      <div class="panel-heading"><div><p class="step-label">Main stage</p><h2 id="stripper-title">Strip images</h2></div><span class="local-badge">LOCAL ONLY</span></div>
+      <form id="strip-form">
+        <div id="drop-zone" class="drop-zone">
+          <label class="file-label" for="image-input"><span class="drop-icon" aria-hidden="true">↓</span><span class="drop-title">Drop images here</span><span class="drop-subtitle">or choose JPEG, PNG or WebP files</span><span class="choose-file">Choose images</span></label>
+          <input id="image-input" class="file-input" type="file" multiple accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" aria-describedby="file-hint file-error">
+          <p id="file-hint" class="hint">Limits are configured in <code>config.js</code>.</p><p id="file-error" class="field-error" role="alert" hidden></p>
         </div>
 
-        <form id="strip-form">
-          <div id="drop-zone" class="drop-zone">
-            <label class="file-label" for="image-input">
-              <span class="drop-icon" aria-hidden="true">↓</span>
-              <span class="drop-title">Drop an image here</span>
-              <span class="drop-subtitle">or choose a JPEG, PNG or WebP file</span>
-              <span class="choose-file">Choose image</span>
-            </label>
-            <input
-              id="image-input"
-              class="file-input"
-              type="file"
-              accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-              aria-describedby="file-hint file-error"
-            >
-            <p id="file-hint" class="hint">Maximum 30 MB and 50 megapixels. SVG and other active formats are rejected.</p>
-            <p id="file-error" class="field-error" role="alert" hidden></p>
-          </div>
-
-          <div id="file-summary" class="file-summary" hidden>
-            <img id="source-preview" class="preview-image" alt="Preview of the selected source image">
-            <div class="file-summary-copy">
-              <p class="summary-kicker">Selected file</p>
-              <p id="source-name" class="source-name"></p>
-              <dl class="file-facts">
-                <div><dt>Type</dt><dd id="source-type">—</dd></div>
-                <div><dt>Size</dt><dd id="source-size">—</dd></div>
-                <div><dt>Dimensions</dt><dd id="source-dimensions">Checked before decoding</dd></div>
-              </dl>
-            </div>
-          </div>
-
-          <fieldset class="options">
-            <legend>Output settings</legend>
-            <div class="field">
-              <label for="output-format">Format</label>
-              <select id="output-format" name="output-format">
-                <option value="auto">Auto — keep JPEG / PNG / WebP</option>
-                <option value="image/jpeg">JPEG</option>
-                <option value="image/png">PNG</option>
-                <option value="image/webp">WebP</option>
-              </select>
-              <p class="hint">JPEG uses a white background if the source has transparency.</p>
-            </div>
-
-            <div class="field">
-              <div class="range-label">
-                <label for="quality">Lossy quality</label>
-                <output id="quality-value" for="quality">92%</output>
-              </div>
-              <input id="quality" name="quality" type="range" min="70" max="100" value="92" step="1">
-              <p class="hint">Applied to JPEG and WebP. PNG ignores this setting.</p>
-            </div>
-          </fieldset>
-
-          <div class="actions">
-            <button id="strip-button" class="button button-primary" type="submit">Strip metadata</button>
-            <button id="reset-button" class="button button-secondary" type="reset">Clear</button>
-          </div>
-        </form>
-
-        <section id="result" class="result" aria-labelledby="result-title" hidden>
-          <div class="result-header">
-            <div>
-              <p class="step-label">After show</p>
-              <h3 id="result-title" tabindex="-1">Freshly stripped</h3>
-            </div>
-            <span id="verification-badge" class="verification-badge">CHECKING</span>
-          </div>
-
-          <div class="result-grid">
-            <img id="result-preview" class="preview-image result-preview" alt="Preview of the stripped output image">
-            <div class="verification-card">
-              <dl class="result-facts">
-                <div><dt>Output</dt><dd id="result-type">—</dd></div>
-                <div><dt>File size</dt><dd id="result-size">—</dd></div>
-                <div><dt>Source markers found before</dt><dd id="source-markers">—</dd></div>
-                <div><dt>Known source metadata markers after</dt><dd id="result-markers">—</dd></div>
-              </dl>
-              <p id="verification-copy" class="verification-copy"></p>
-              <a id="download-link" class="button button-primary download-button" href="#" download hidden>Download stripped image</a>
-            </div>
-          </div>
+        <section id="selection" class="selection" aria-labelledby="selection-title" hidden>
+          <div class="section-heading"><div><p class="step-label">Selected images</p><h3 id="selection-title">Metadata waiting to come off</h3></div><span id="selected-count" class="count-badge"></span></div>
+          <div id="selected-list" class="selected-list"></div>
         </section>
 
-        <div id="status" class="status" aria-live="polite" aria-atomic="true"></div>
-      </div>
-    </section>
+        <fieldset class="options"><legend>Output settings</legend>
+          <div class="field"><label for="output-format">Format</label><select id="output-format" name="output-format"><option value="auto">Auto — keep JPEG / PNG / WebP</option><option value="image/jpeg">JPEG</option><option value="image/png">PNG</option><option value="image/webp">WebP</option></select><p class="hint">JPEG uses a white background if a source has transparency.</p></div>
+          <div class="field"><div class="range-label"><label for="quality">Lossy quality</label><output id="quality-value" for="quality">92%</output></div><input id="quality" name="quality" type="range" min="70" max="100" value="92" step="1"><p class="hint">Applied to JPEG and WebP. PNG ignores this setting.</p></div>
+        </fieldset>
+        <div class="actions"><button id="strip-button" class="button button-primary" type="submit">Strip metadata</button><button id="reset-button" class="button button-secondary" type="reset">Clear</button></div>
+      </form>
+
+      <section id="results" class="results" aria-labelledby="results-title" hidden>
+        <div class="section-heading"><div><p class="step-label">After show</p><h3 id="results-title" tabindex="-1">Freshly stripped</h3></div><span id="results-summary" class="verification-badge"></span></div>
+        <div id="results-list" class="results-list"></div><div class="after-actions"><button id="strip-more-button" class="button button-primary" type="button">Strip more</button></div>
+      </section>
+      <div id="status" class="status" aria-live="polite" aria-atomic="true"></div>
+    </div></section>
 
     <section id="privacy" class="info-grid" aria-labelledby="privacy-title">
-      <article class="info-card">
-        <p class="card-number">01</p>
-        <h2 id="privacy-title">Nothing gets uploaded</h2>
-        <p>Processing happens in this browser. Meta-Stripper does not send the selected image, filenames, metadata or results to a server. There are no third-party scripts or trackers.</p>
-      </article>
-
-      <article class="info-card">
-        <p class="card-number">02</p>
-        <h2>Pixels are re-encoded</h2>
-        <p>The browser decodes the image, draws the visible pixels to a canvas, then creates a new file. The source container and its metadata blocks are not copied into the export.</p>
-      </article>
-
-      <article class="info-card">
-        <p class="card-number">03</p>
-        <h2>The export is checked</h2>
-        <p>The new file is scanned locally for known source-metadata markers, including EXIF, XMP, IPTC and common embedded C2PA/JUMBF locations. If a known source marker remains, download is blocked.</p>
-      </article>
+      <article class="info-card"><p class="card-number">01</p><h2 id="privacy-title">Nothing gets uploaded</h2><p>Processing happens in this browser. Meta-Stripper does not send images, filenames, metadata or results to a server.</p></article>
+      <article class="info-card"><p class="card-number">02</p><h2>See what comes off</h2><p>Before stripping, each selected image shows the metadata areas detected in its source container and common readable EXIF details where available.</p></article>
+      <article class="info-card"><p class="card-number">03</p><h2>Exports are checked</h2><p>Every new file is scanned locally for known EXIF, XMP, IPTC and embedded C2PA/JUMBF source markers. A result with a known source marker is blocked.</p></article>
     </section>
 
-    <section id="limits" class="limits panel" aria-labelledby="limits-title">
-      <div class="limits-copy">
-        <p class="step-label">Reality check</p>
-        <h2 id="limits-title">What this can — and cannot — promise</h2>
-
-        <div class="can-cannot">
-          <div>
-            <h3>It can</h3>
-            <ul>
-              <li>Remove source EXIF, GPS, XMP and IPTC metadata by re-encoding.</li>
-              <li>Remove embedded JPEG APP11 / PNG caBX C2PA/JUMBF data when re-encoding succeeds.</li>
-              <li>Verify that known embedded source-metadata markers are absent from the new file.</li>
-              <li>Operate without uploading your image anywhere.</li>
-            </ul>
-          </div>
-
-          <div>
-            <h3>It cannot guarantee</h3>
-            <ul>
-              <li>That every platform will display no CR/C2PA indicator now or in the future.</li>
-              <li>That a platform cannot match the pixels through a perceptual fingerprint.</li>
-              <li>That an invisible watermark embedded in the pixels cannot be recovered.</li>
-              <li>That browser-generated technical encoding data is literally zero bytes of metadata.</li>
-            </ul>
-          </div>
-        </div>
-
-        <p class="important-note">
-          Meta-Stripper does not modify pixels to defeat invisible watermarks or provenance-recovery systems. C2PA supports “soft bindings” such as fingerprints and invisible watermarks that can reconnect a derived image to external provenance data even after an embedded manifest has been removed.
-        </p>
-
-        <p class="reference-links">
-          Technical references:
-          <a href="https://spec.c2pa.org/specifications/specifications/2.4/specs/ContentCredentials.html" target="_blank" rel="noopener noreferrer">C2PA Content Credentials 2.4</a>
-          ·
-          <a href="https://www.linkedin.com/help/linkedin/answer/a6282984" target="_blank" rel="noopener noreferrer">LinkedIn Content Credentials</a>
-        </p>
-      </div>
-    </section>
+    <section id="limits" class="limits panel" aria-labelledby="limits-title"><div class="limits-copy">
+      <p class="step-label">Reality check</p><h2 id="limits-title">What this can — and cannot — promise</h2>
+      <div class="can-cannot"><div><h3>It can</h3><ul><li>Remove source EXIF, GPS, XMP and IPTC metadata by re-encoding.</li><li>Remove embedded JPEG APP11 / PNG caBX C2PA/JUMBF data when re-encoding succeeds.</li><li>Verify that known embedded source-metadata markers are absent from each new file.</li><li>Batch-process images without uploading them anywhere.</li></ul></div><div><h3>It cannot guarantee</h3><ul><li>That every platform will display no CR/C2PA indicator now or in the future.</li><li>That a platform cannot match pixels through a perceptual fingerprint.</li><li>That an invisible watermark embedded in the pixels cannot be recovered.</li><li>That browser-generated technical encoding data is literally zero bytes of metadata.</li></ul></div></div>
+      <p class="important-note">Meta-Stripper does not modify pixels to defeat invisible watermarks or provenance-recovery systems. C2PA supports soft bindings such as fingerprints and invisible watermarks that can reconnect a derived image to external provenance data after an embedded manifest is removed.</p>
+      <p class="reference-links">Technical references: <a href="https://spec.c2pa.org/specifications/specifications/2.4/specs/ContentCredentials.html" target="_blank" rel="noopener noreferrer">C2PA Content Credentials 2.4</a> · <a href="https://www.linkedin.com/help/linkedin/answer/a6282984" target="_blank" rel="noopener noreferrer">LinkedIn Content Credentials</a></p>
+    </div></section>
   </main>
 
-  <footer class="site-footer">
-    <p><strong>Meta-Stripper</strong> — private image re-encoding in your browser.</p>
-    <p id="pwa-status">Offline support activates after the first successful secure visit.</p>
-  </footer>
+  <footer class="site-footer"><p><strong>Meta-Stripper</strong> — private image re-encoding in your browser.</p><p id="pwa-status">Offline support activates after the first successful secure visit.</p></footer>
 </body>
 </html>

@@ -1,23 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
   <title id="title">Meta-Stripper icon</title>
-  <desc id="desc">Abstract neon pole dancer silhouette inside a circular sign</desc>
+  <desc id="desc">Stylized neon woman dancing beside a pole</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#2b092d"/>
-      <stop offset="1" stop-color="#0d0610"/>
-    </linearGradient>
-    <linearGradient id="neon" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ff4aa5"/>
-      <stop offset="1" stop-color="#57e8f6"/>
-    </linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#390b38"/><stop offset="1" stop-color="#0b050d"/></linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff7bc1"/><stop offset=".48" stop-color="#ff2f96"/><stop offset="1" stop-color="#57e8f6"/></linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="9" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
   </defs>
   <circle cx="256" cy="256" r="232" fill="url(#bg)" stroke="#ff4aa5" stroke-width="14"/>
-  <circle cx="256" cy="256" r="198" fill="none" stroke="#57e8f6" stroke-width="6" opacity=".72"/>
-  <rect x="329" y="92" width="16" height="330" rx="8" fill="#57e8f6"/>
-  <circle cx="247" cy="151" r="31" fill="#ff4aa5"/>
-  <path d="M252 184 C278 190 298 211 300 238 C302 260 294 279 281 298 C269 316 265 339 272 359 L294 421 L258 421 L238 365 C229 341 226 315 232 290 C207 308 185 337 177 375 L167 421 L129 421 L143 362 C154 315 183 274 219 247 C208 221 214 198 229 187 C236 182 244 181 252 184Z" fill="url(#neon)"/>
-  <path d="M291 225 C317 216 331 197 336 174" fill="none" stroke="#ff4aa5" stroke-width="22" stroke-linecap="round"/>
-  <path d="M225 208 C198 214 178 232 163 258" fill="none" stroke="#ff4aa5" stroke-width="22" stroke-linecap="round"/>
-  <path d="M164 258 C151 279 143 301 140 323" fill="none" stroke="#57e8f6" stroke-width="18" stroke-linecap="round"/>
-  <circle cx="336" cy="171" r="12" fill="#ff4aa5"/>
+  <circle cx="256" cy="256" r="198" fill="none" stroke="#57e8f6" stroke-width="6" opacity=".7"/>
+  <g filter="url(#glow)">
+    <rect x="350" y="78" width="15" height="354" rx="8" fill="#57e8f6"/>
+    <path d="M213 118 C222 88 266 81 286 106 C301 125 295 157 279 171 C258 187 222 173 214 150 C210 139 209 128 213 118Z" fill="#ff4aa5"/>
+    <circle cx="252" cy="132" r="28" fill="#ffd0e8"/>
+    <path d="M247 165 C225 171 215 190 221 211 C228 230 234 243 226 260 C216 282 222 306 246 319 C267 330 298 323 308 302 C317 284 307 266 297 250 C288 236 291 221 302 204 C313 185 300 168 278 164 C267 162 258 164 247 165Z" fill="url(#body)"/>
+    <path d="M294 190 C319 178 340 157 356 126" fill="none" stroke="#ff4aa5" stroke-width="22" stroke-linecap="round"/>
+    <circle cx="357" cy="124" r="12" fill="#ffd0e8"/>
+    <path d="M229 190 C202 200 181 221 168 250 C160 268 155 284 153 299" fill="none" stroke="#ff4aa5" stroke-width="20" stroke-linecap="round"/>
+    <circle cx="153" cy="302" r="11" fill="#ffd0e8"/>
+    <path d="M260 310 C255 344 258 385 267 430" fill="none" stroke="#57e8f6" stroke-width="27" stroke-linecap="round"/>
+    <path d="M283 309 C301 336 316 355 337 363 C350 368 356 381 349 393 C342 405 326 408 315 399" fill="none" stroke="#ff4aa5" stroke-width="27" stroke-linecap="round"/>
+    <path d="M245 437 L281 437 L289 448 L244 448Z" fill="#ff4aa5"/>
+  </g>
 </svg>

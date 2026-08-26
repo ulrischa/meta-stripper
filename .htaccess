@@ -15,13 +15,11 @@ Options -Indexes
   Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=()"
   Header always set Cross-Origin-Opener-Policy "same-origin-allow-popups"
   Header always set Cross-Origin-Resource-Policy "same-origin"
-
-  # Safe only when this hostname is permanently HTTPS.
   Header always set Strict-Transport-Security "max-age=31536000"
 
-  <Files "sw.js">
+  <FilesMatch "^(sw\.js|config\.js)$">
     Header set Cache-Control "no-cache, no-store, must-revalidate"
-  </Files>
+  </FilesMatch>
 
   <FilesMatch "^(index\.html|manifest\.webmanifest)$">
     Header set Cache-Control "no-cache"
