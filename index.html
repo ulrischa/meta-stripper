@@ -20,7 +20,7 @@
   <a class="skip-link" href="#stripper">Skip to image selection</a>
   <header class="site-header"><div class="header-inner">
     <a class="brand" href="./" aria-label="Meta-Stripper home"><img src="./assets/icon.svg" width="48" height="48" alt=""><span>Meta-Stripper</span></a>
-    <nav aria-label="Primary"><ul role="list"><li><a href="#stripper">Strip</a></li><li><a href="#privacy">Privacy</a></li><li><a href="#limits">Limits</a></li></ul></nav>
+    <nav aria-label="Primary"><ul role="list"><li><a href="#stripper">Strip</a></li><li><a href="#limits">Limits</a></li></ul></nav>
   </div></header>
 
   <main>
@@ -39,7 +39,7 @@
     </section>
 
     <section id="stripper" class="workspace-shell" aria-labelledby="stripper-title"><div class="workspace panel">
-      <div class="panel-heading"><div><p class="step-label">Main stage</p><h2 id="stripper-title">Strip images</h2></div><span class="local-badge">LOCAL ONLY</span></div>
+      <div class="panel-heading"><div><p class="step-label">Main stage</p><h2 id="stripper-title">Strip images</h2></div></div>
       <form id="strip-form">
         <div id="drop-zone" class="drop-zone">
           <label class="file-label" for="image-input"><span class="drop-icon" aria-hidden="true">↓</span><span class="drop-title">Drop images here</span><span class="drop-subtitle">JPEG, PNG or WebP</span></label>
@@ -65,12 +65,6 @@
       </section>
       <div id="status" class="status" aria-live="polite" aria-atomic="true"></div>
     </div></section>
-
-    <section id="privacy" class="info-grid" aria-labelledby="privacy-title">
-      <article class="info-card"><p class="card-number">01</p><h2 id="privacy-title">Nothing gets uploaded</h2><p>Processing happens in this browser. Meta-Stripper does not send images, filenames, metadata or results to a server.</p></article>
-      <article class="info-card"><p class="card-number">02</p><h2>See what comes off</h2><p>Before stripping, each selected image shows the metadata areas detected in its source container and common readable EXIF details where available.</p></article>
-      <article class="info-card"><p class="card-number">03</p><h2>Exports are checked</h2><p>Every new file is scanned locally for known EXIF, XMP, IPTC and embedded C2PA/JUMBF source markers. A result with a known source marker is blocked.</p></article>
-    </section>
 
     <section id="limits" class="limits panel" aria-labelledby="limits-title"><div class="limits-copy">
       <p class="step-label">Reality check</p><h2 id="limits-title">What this can and cannot promise</h2>
