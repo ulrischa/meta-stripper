@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Meta-Stripper icon</title>
+  <desc id="desc">Abstract neon pole dancer silhouette inside a circular sign</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2b092d"/>
+      <stop offset="1" stop-color="#0d0610"/>
+    </linearGradient>
+    <linearGradient id="neon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff4aa5"/>
+      <stop offset="1" stop-color="#57e8f6"/>
+    </linearGradient>
+  </defs>
+  <circle cx="256" cy="256" r="232" fill="url(#bg)" stroke="#ff4aa5" stroke-width="14"/>
+  <circle cx="256" cy="256" r="198" fill="none" stroke="#57e8f6" stroke-width="6" opacity=".72"/>
+  <rect x="329" y="92" width="16" height="330" rx="8" fill="#57e8f6"/>
+  <circle cx="247" cy="151" r="31" fill="#ff4aa5"/>
+  <path d="M252 184 C278 190 298 211 300 238 C302 260 294 279 281 298 C269 316 265 339 272 359 L294 421 L258 421 L238 365 C229 341 226 315 232 290 C207 308 185 337 177 375 L167 421 L129 421 L143 362 C154 315 183 274 219 247 C208 221 214 198 229 187 C236 182 244 181 252 184Z" fill="url(#neon)"/>
+  <path d="M291 225 C317 216 331 197 336 174" fill="none" stroke="#ff4aa5" stroke-width="22" stroke-linecap="round"/>
+  <path d="M225 208 C198 214 178 232 163 258" fill="none" stroke="#ff4aa5" stroke-width="22" stroke-linecap="round"/>
+  <path d="M164 258 C151 279 143 301 140 323" fill="none" stroke="#57e8f6" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="336" cy="171" r="12" fill="#ff4aa5"/>
+</svg>
