@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Strip image metadata locally in your browser. Batch-process JPEG, PNG and WebP files without uploads, tracking or third-party code.">
+  <meta name="description" content="Strip image metadata locally in your browser. Batch process JPEG, PNG and WebP files without uploads, tracking or third party code.">
   <meta name="theme-color" content="#170019">
   <meta name="color-scheme" content="light dark">
   <meta name="robots" content="index, follow, max-image-preview:large">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; worker-src 'self'; manifest-src 'self'">
-  <title>Meta-Stripper — Strip Image Metadata Locally</title>
+  <title>Meta-Stripper | Strip Image Metadata Locally</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css">
@@ -31,12 +31,10 @@
         <ul class="trust-list" role="list">
           <li><span aria-hidden="true">✓</span> Images never leave this device</li>
           <li><span aria-hidden="true">✓</span> No account, analytics, CDN or upload API</li>
-          <li><span aria-hidden="true">✓</span> Offline after the first successful visit</li>
         </ul>
       </div>
       <figure class="hero-mark">
         <button id="hero-upload-button" class="neon-sign" type="button" aria-label="Choose images to strip"><img src="./assets/icon.svg" width="260" height="260" alt=""><span class="visually-hidden">Choose images</span></button>
-        <figcaption>Tap the dancer to choose images.</figcaption>
       </figure>
     </section>
 
@@ -44,9 +42,9 @@
       <div class="panel-heading"><div><p class="step-label">Main stage</p><h2 id="stripper-title">Strip images</h2></div><span class="local-badge">LOCAL ONLY</span></div>
       <form id="strip-form">
         <div id="drop-zone" class="drop-zone">
-          <label class="file-label" for="image-input"><span class="drop-icon" aria-hidden="true">↓</span><span class="drop-title">Drop images here</span><span class="drop-subtitle">or choose JPEG, PNG or WebP files</span><span class="choose-file">Choose images</span></label>
-          <input id="image-input" class="file-input" type="file" multiple accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" aria-describedby="file-hint file-error">
-          <p id="file-hint" class="hint">Limits are configured in <code>config.js</code>.</p><p id="file-error" class="field-error" role="alert" hidden></p>
+          <label class="file-label" for="image-input"><span class="drop-icon" aria-hidden="true">↓</span><span class="drop-title">Drop images here</span><span class="drop-subtitle">JPEG, PNG or WebP</span></label>
+          <input id="image-input" class="file-input" type="file" multiple accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" aria-describedby="file-error">
+          <p id="file-hint" hidden></p><p id="file-error" class="field-error" role="alert" hidden></p>
         </div>
 
         <section id="selection" class="selection" aria-labelledby="selection-title" hidden>
@@ -55,7 +53,7 @@
         </section>
 
         <fieldset class="options"><legend>Output settings</legend>
-          <div class="field"><label for="output-format">Format</label><select id="output-format" name="output-format"><option value="auto">Auto — keep JPEG / PNG / WebP</option><option value="image/jpeg">JPEG</option><option value="image/png">PNG</option><option value="image/webp">WebP</option></select><p class="hint">JPEG uses a white background if a source has transparency.</p></div>
+          <div class="field"><label for="output-format">Format</label><select id="output-format" name="output-format"><option value="auto">Auto, keep JPEG / PNG / WebP</option><option value="image/jpeg">JPEG</option><option value="image/png">PNG</option><option value="image/webp">WebP</option></select><p class="hint">JPEG uses a white background if a source has transparency.</p></div>
           <div class="field"><div class="range-label"><label for="quality">Lossy quality</label><output id="quality-value" for="quality">92%</output></div><input id="quality" name="quality" type="range" min="70" max="100" value="92" step="1"><p class="hint">Applied to JPEG and WebP. PNG ignores this setting.</p></div>
         </fieldset>
         <div class="actions"><button id="strip-button" class="button button-primary" type="submit">Strip metadata</button><button id="reset-button" class="button button-secondary" type="reset">Clear</button></div>
@@ -75,13 +73,13 @@
     </section>
 
     <section id="limits" class="limits panel" aria-labelledby="limits-title"><div class="limits-copy">
-      <p class="step-label">Reality check</p><h2 id="limits-title">What this can — and cannot — promise</h2>
-      <div class="can-cannot"><div><h3>It can</h3><ul><li>Remove source EXIF, GPS, XMP and IPTC metadata by re-encoding.</li><li>Remove embedded JPEG APP11 / PNG caBX C2PA/JUMBF data when re-encoding succeeds.</li><li>Verify that known embedded source-metadata markers are absent from each new file.</li><li>Batch-process images without uploading them anywhere.</li></ul></div><div><h3>It cannot guarantee</h3><ul><li>That every platform will display no CR/C2PA indicator now or in the future.</li><li>That a platform cannot match pixels through a perceptual fingerprint.</li><li>That an invisible watermark embedded in the pixels cannot be recovered.</li><li>That browser-generated technical encoding data is literally zero bytes of metadata.</li></ul></div></div>
-      <p class="important-note">Meta-Stripper does not modify pixels to defeat invisible watermarks or provenance-recovery systems. C2PA supports soft bindings such as fingerprints and invisible watermarks that can reconnect a derived image to external provenance data after an embedded manifest is removed.</p>
+      <p class="step-label">Reality check</p><h2 id="limits-title">What this can and cannot promise</h2>
+      <div class="can-cannot"><div><h3>It can</h3><ul><li>Remove source EXIF, GPS, XMP and IPTC metadata by re-encoding.</li><li>Remove embedded JPEG APP11 / PNG caBX C2PA/JUMBF data when re-encoding succeeds.</li><li>Verify that known embedded source metadata markers are absent from each new file.</li><li>Batch process images without uploading them anywhere.</li></ul></div><div><h3>It cannot guarantee</h3><ul><li>That every platform will display no CR/C2PA indicator now or in the future.</li><li>That a platform cannot match pixels through a perceptual fingerprint.</li><li>That an invisible watermark embedded in the pixels cannot be recovered.</li><li>That browser generated technical encoding data is literally zero bytes of metadata.</li></ul></div></div>
+      <p class="important-note">Meta-Stripper does not modify pixels to defeat invisible watermarks or provenance recovery systems. C2PA supports soft bindings such as fingerprints and invisible watermarks that can reconnect a derived image to external provenance data after an embedded manifest is removed.</p>
       <p class="reference-links">Technical references: <a href="https://spec.c2pa.org/specifications/specifications/2.4/specs/ContentCredentials.html" target="_blank" rel="noopener noreferrer">C2PA Content Credentials 2.4</a> · <a href="https://www.linkedin.com/help/linkedin/answer/a6282984" target="_blank" rel="noopener noreferrer">LinkedIn Content Credentials</a></p>
     </div></section>
   </main>
 
-  <footer class="site-footer"><p><strong>Meta-Stripper</strong> — private image re-encoding in your browser.</p><p id="pwa-status">Offline support activates after the first successful secure visit.</p></footer>
+  <footer class="site-footer"><p><strong>Meta-Stripper.</strong> Private image re-encoding in your browser.</p><p>Offline via PWA after the first visit.</p><p id="pwa-status" hidden></p></footer>
 </body>
 </html>
